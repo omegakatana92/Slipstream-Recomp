@@ -29,6 +29,8 @@ static const char *video_dir;
 static uint64_t state_dump = UINT64_MAX;
 static const char *dump_dir;
 static FILE *sound_hashes;
+static FILE *sound_wav;
+static uint32_t sound_wav_bytes;
 static uint8_t *program_image;
 static uint8_t *tiles_image;
 static uint8_t *sprites_image;
@@ -164,7 +166,18 @@ static void on_frame_done(void)
 	const uint64_t frame = program_frames() - 1;
 
 	if (sound_image)
+	{
+		size_t frames = 0;
+		const int16_t *mix;
+
 		s32s_end_frame(s32_board.cycles);
+		mix = s32s_frame_mix(&frames);
+		if (sound_wav && frames)
+		{
+			fwrite(mix, sizeof(int16_t) * 2, frames, sound_wav);
+			sound_wav_bytes += (uint32_t)(frames * 4);
+		}
+	}
 
 	if (hashes)
 		fprintf(hashes, "%" PRIu64 " %016" PRIx64 "\n", frame, s32_state_hash());
@@ -192,6 +205,8 @@ int main(int argc, char **argv)
 	const char *hashes_path = NULL;
 	const char *video_hashes_path = NULL;
 	const char *sound_hashes_path = NULL;
+	const char *sound_wav_path = NULL;
+	const char *sound_log_path = NULL;
 
 	for (int index = 1; index < argc; index++)
 	{
@@ -213,6 +228,10 @@ int main(int argc, char **argv)
 			dump_dir = argv[++index];
 		else if (strcmp(argv[index], "--sound-hashes") == 0 && index + 1 < argc)
 			sound_hashes_path = argv[++index];
+		else if (strcmp(argv[index], "--sound-wav") == 0 && index + 1 < argc)
+			sound_wav_path = argv[++index];
+		else if (strcmp(argv[index], "--sound-log") == 0 && index + 1 < argc)
+			sound_log_path = argv[++index];
 		else
 		{
 			fprintf(stderr, USAGE);
@@ -233,12 +252,39 @@ int main(int argc, char **argv)
 		hashes = fopen(hashes_path, "w");
 	if (sound_hashes_path)
 		sound_hashes = fopen(sound_hashes_path, "w");
+	if (sound_wav_path && sound_image)
+	{
+		uint8_t header[44] = { 'R', 'I', 'F', 'F' };
+		const uint32_t rate = s32s_mix_rate();
+
+		sound_wav = fopen(sound_wav_path, "wb");
+		if (sound_wav)
+		{
+			header[8] = 'W'; header[9] = 'A'; header[10] = 'V'; header[11] = 'E';
+			header[12] = 'f'; header[13] = 'm'; header[14] = 't'; header[15] = ' ';
+			header[16] = 16;
+			header[20] = 1;
+			header[22] = 2;
+			header[24] = (uint8_t)rate; header[25] = (uint8_t)(rate >> 8);
+			header[26] = (uint8_t)(rate >> 16); header[27] = (uint8_t)(rate >> 24);
+			header[28] = (uint8_t)(rate * 4); header[29] = (uint8_t)(rate * 4 >> 8);
+			header[30] = (uint8_t)(rate * 4 >> 16); header[31] = (uint8_t)(rate * 4 >> 24);
+			header[32] = 4;
+			header[34] = 16;
+			header[36] = 'd'; header[37] = 'a'; header[38] = 't'; header[39] = 'a';
+			fwrite(header, 1, sizeof(header), sound_wav);
+		}
+	}
 
 	s32_video_init(tiles_image, 0x200000, sprites_image, 0x400000);
 	if (sound_image)
 	{
+		FILE *log = sound_log_path ? fopen(sound_log_path, "w") : NULL;
+
 		s32_board.sound_rom = sound_image;
 		s32s_attach();
+		if (log)
+			s32s_log_writes(log);
 	}
 	s32_board.irq_changed = on_irq_changed;
 	s32_board.controls_update = on_controls_update;
@@ -259,11 +305,26 @@ int main(int argc, char **argv)
 		fclose(video_hashes);
 	if (sound_hashes)
 		fclose(sound_hashes);
+	if (sound_wav)
+	{
+		fseek(sound_wav, 4, SEEK_SET);
+		fputc((int)(36 + sound_wav_bytes), sound_wav);
+		fputc((int)((36 + sound_wav_bytes) >> 8), sound_wav);
+		fputc((int)((36 + sound_wav_bytes) >> 16), sound_wav);
+		fputc((int)((36 + sound_wav_bytes) >> 24), sound_wav);
+		fseek(sound_wav, 40, SEEK_SET);
+		fputc((int)sound_wav_bytes, sound_wav);
+		fputc((int)(sound_wav_bytes >> 8), sound_wav);
+		fputc((int)(sound_wav_bytes >> 16), sound_wav);
+		fputc((int)(sound_wav_bytes >> 24), sound_wav);
+		fclose(sound_wav);
+	}
 	printf("frames:            %" PRIu64 "\n", program_frames());
 	printf("interrupts taken:  %u\n", program_interrupts());
 	printf("sprite lists:      %u\n", s32_board.sprite_lists);
 	printf("unmapped reads:    %u\n", s32_board.unmapped_reads);
 	printf("unmapped writes:   %u\n", s32_board.unmapped_writes);
+	printf("Z80 cycles:        %llu\n", (unsigned long long)s32s_z80_cycles());
 	free(program_image);
 	free(tiles_image);
 	free(sprites_image);
