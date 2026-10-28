@@ -1,0 +1,7 @@
+# Slip Stream (MAME set 'slipstrm', Brazil 950515) - V60 program symbols
+# Format: ADDRESS  KIND  NAME  [LAYOUT]
+# Code runs from the 080000-0FFFFF copy of s32b_prg01.ic6; FFFFF0 mirrors it.
+FFFFF0  func  reset
+080000  data  vector_table
+081B3A  code  frame_wait_loop
+081B42  code  frame_wait_done

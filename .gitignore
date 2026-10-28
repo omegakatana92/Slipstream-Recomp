@@ -1,0 +1,27 @@
+# Build output, ROMs, generated code and private assets
+build/
+rom/
+*.zip
+*.7z
+*.exe
+*.dll
+*.lib
+*.pdb
+*.obj
+*.o
+*.AppImage
+*.appimage
+assets/
+regions/
+generated/
+*.bin
+*.wav
+*.png
+*.bmp
+!docs/screenshots/*.png
+*.ini
+*.log
+.vs/
+.vscode/
+__pycache__/
+*.pyc
