@@ -2,8 +2,9 @@ Slip Stream - Windows x64 development build
 ==========================================
 
 STATUS: development snapshot. The main CPU program is translated and frame-accurate against the
-MAME reference, but the game currently renders a black screen because of an unresolved boot-timing
-issue. It is not yet playable. See BUILD_STATUS.md in the source repository.
+MAME reference, and the sound board now runs the original Z80 program (MAME Z80 + RF5C68 + YM3438).
+The game still renders a black screen because of an unresolved boot-timing issue, so it is not yet
+playable. See BUILD_STATUS.md in the source repository.
 
 This package contains NO ROM, BIOS, graphics, audio or region data. You must own the arcade board or
 a licensed copy of the ROMs.
