@@ -9,6 +9,7 @@
 #include "s32/machine.h"
 #include "s32/program.h"
 #include "s32/video.h"
+#include "s32sound.h"
 
 #include <inttypes.h>
 #include <setjmp.h>
@@ -27,9 +28,11 @@ static uint64_t video_dump = UINT64_MAX;
 static const char *video_dir;
 static uint64_t state_dump = UINT64_MAX;
 static const char *dump_dir;
+static FILE *sound_hashes;
 static uint8_t *program_image;
 static uint8_t *tiles_image;
 static uint8_t *sprites_image;
+static uint8_t *sound_image;
 
 static uint8_t *load_region(const char *dir, const char *name, size_t expected)
 {
@@ -160,8 +163,14 @@ static void on_frame_done(void)
 {
 	const uint64_t frame = program_frames() - 1;
 
+	if (sound_image)
+		s32s_end_frame(s32_board.cycles);
+
 	if (hashes)
 		fprintf(hashes, "%" PRIu64 " %016" PRIx64 "\n", frame, s32_state_hash());
+	if (sound_hashes)
+		fprintf(sound_hashes, "%" PRIu64 " %016" PRIx64 " %016" PRIx64 "\n", frame,
+			s32s_frame_samples_hash(), s32s_state_hash());
 	if (video_hashes)
 		fprintf(video_hashes, "%" PRIu64 " %016" PRIx64 "\n", frame, s32_video_frame_hash());
 	if (video_dir && frame == video_dump)
@@ -182,6 +191,7 @@ int main(int argc, char **argv)
 	const char *regions = "build/regions";
 	const char *hashes_path = NULL;
 	const char *video_hashes_path = NULL;
+	const char *sound_hashes_path = NULL;
 
 	for (int index = 1; index < argc; index++)
 	{
@@ -201,6 +211,8 @@ int main(int argc, char **argv)
 			state_dump = strtoull(argv[++index], NULL, 10);
 		else if (strcmp(argv[index], "--dump-dir") == 0 && index + 1 < argc)
 			dump_dir = argv[++index];
+		else if (strcmp(argv[index], "--sound-hashes") == 0 && index + 1 < argc)
+			sound_hashes_path = argv[++index];
 		else
 		{
 			fprintf(stderr, USAGE);
@@ -211,15 +223,23 @@ int main(int argc, char **argv)
 	program_image = load_region(regions, "program.bin", S32_PROGRAM_SIZE);
 	tiles_image = load_region(regions, "tiles.bin", 0x200000);
 	sprites_image = load_region(regions, "sprites.bin", 0x400000);
+	sound_image = load_region(regions, "sound.bin", 0x400000);
 	if (!program_image || !tiles_image || !sprites_image)
 		return 1;
+	if (!sound_image)
+		fprintf(stderr, "sound.bin missing: running without the sound board\n");
 
 	if (hashes_path)
 		hashes = fopen(hashes_path, "w");
-	if (video_hashes_path)
-		video_hashes = fopen(video_hashes_path, "w");
+	if (sound_hashes_path)
+		sound_hashes = fopen(sound_hashes_path, "w");
 
 	s32_video_init(tiles_image, 0x200000, sprites_image, 0x400000);
+	if (sound_image)
+	{
+		s32_board.sound_rom = sound_image;
+		s32s_attach();
+	}
 	s32_board.irq_changed = on_irq_changed;
 	s32_board.controls_update = on_controls_update;
 	s32_board.frame_shown = s32_video_draw_frame;
@@ -237,6 +257,8 @@ int main(int argc, char **argv)
 		fclose(hashes);
 	if (video_hashes)
 		fclose(video_hashes);
+	if (sound_hashes)
+		fclose(sound_hashes);
 	printf("frames:            %" PRIu64 "\n", program_frames());
 	printf("interrupts taken:  %u\n", program_interrupts());
 	printf("sprite lists:      %u\n", s32_board.sprite_lists);

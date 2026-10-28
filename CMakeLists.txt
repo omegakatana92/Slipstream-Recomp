@@ -38,15 +38,42 @@ if(UNIX AND NOT APPLE)
 	target_link_libraries(s32runtime PUBLIC m)
 endif()
 
-add_library(slipstream_v60 STATIC src/cpu/v60.c)
-target_link_libraries(slipstream_v60 PUBLIC s32runtime)
+# (v60.c and the translated program are one library: the runtime calls the generated entry table)
+# Sound board: the original Z80 program on MAME's Z80 core, with MAME's RF5C68 and ymfm's YM3438
+# (BSD-3-Clause; reference sources from tools/core). The main CPU stays translated; this gives the
+# sound board correct behavior until its Z80 program is translated too.
+find_package(Python3 COMPONENTS Interpreter)
+set(SLIPSTREAM_Z80_STEPS ${CMAKE_BINARY_DIR}/generated/cpu/z80/z80.hxx)
+add_custom_command(OUTPUT ${SLIPSTREAM_Z80_STEPS}
+	COMMAND ${CMAKE_COMMAND} -E make_directory ${CMAKE_BINARY_DIR}/generated/cpu/z80
+	COMMAND ${Python3_EXECUTABLE} ${CMAKE_SOURCE_DIR}/tools/core/system32/reference/mame/z80/z80make.py z80
+		${CMAKE_SOURCE_DIR}/tools/core/system32/reference/mame/z80/z80.lst ${SLIPSTREAM_Z80_STEPS}
+	DEPENDS ${CMAKE_SOURCE_DIR}/tools/core/system32/reference/mame/z80/z80make.py
+		${CMAKE_SOURCE_DIR}/tools/core/system32/reference/mame/z80/z80.lst
+	VERBATIM)
+add_library(s32sound STATIC
+	third_party/s32sound/s32sound.cpp
+	tools/core/system32/reference/ymfm/ymfm_opn.cpp
+	tools/core/system32/reference/ymfm/ymfm_adpcm.cpp
+	tools/core/system32/reference/ymfm/ymfm_ssg.cpp
+	${SLIPSTREAM_Z80_STEPS}
+)
+target_include_directories(s32sound PUBLIC
+	third_party/s32sound
+	tools/core/system32/reference
+	tools/core/system32/reference/ymfm
+	${CMAKE_BINARY_DIR}/generated
+	include)
+if(MSVC)
+	target_compile_options(s32sound PRIVATE /wd4244 /wd4267 /wd4100 /wd4146 /wd4127 /bigobj)
+endif()
 
 # The translated program (the user's ROM as C). It is generated, never committed, never shipped.
 file(GLOB SLIPSTREAM_GENERATED CONFIGURE_DEPENDS ${CMAKE_SOURCE_DIR}/build/generated/*.c)
 if(SLIPSTREAM_GENERATED)
-	add_library(slipstream_program STATIC ${SLIPSTREAM_GENERATED})
+	add_library(slipstream_program STATIC ${SLIPSTREAM_GENERATED} src/cpu/v60.c)
 	target_include_directories(slipstream_program PUBLIC build/generated include)
-	target_link_libraries(slipstream_program PUBLIC slipstream_v60)
+	target_link_libraries(slipstream_program PUBLIC s32runtime)
 	if(MSVC)
 		target_compile_options(slipstream_program PRIVATE /bigobj)
 	else()
@@ -54,7 +81,7 @@ if(SLIPSTREAM_GENERATED)
 	endif()
 
 	add_executable(slipstream_headless src/main/main_headless.c)
-	target_link_libraries(slipstream_headless PRIVATE slipstream_program)
+	target_link_libraries(slipstream_headless PRIVATE slipstream_program s32sound)
 
 	option(SLIPSTREAM_SDL2 "Build the windowed port (needs SDL2)" ON)
 	if(SLIPSTREAM_SDL2)
@@ -65,10 +92,10 @@ if(SLIPSTREAM_GENERATED)
 		if(SDL2_FOUND)
 			add_executable(slipstream src/main/main_sdl2.c)
 			if(TARGET SDL2::SDL2)
-				target_link_libraries(slipstream PRIVATE slipstream_program SDL2::SDL2)
+				target_link_libraries(slipstream PRIVATE slipstream_program s32sound SDL2::SDL2)
 			else()
 				target_include_directories(slipstream PRIVATE ${SDL2_INCLUDE_DIRS})
-				target_link_libraries(slipstream PRIVATE slipstream_program ${SDL2_LIBRARIES})
+				target_link_libraries(slipstream PRIVATE slipstream_program s32sound ${SDL2_LIBRARIES})
 			endif()
 			if(TARGET SDL2::SDL2main)
 				target_link_libraries(slipstream PRIVATE SDL2::SDL2main)
@@ -99,5 +126,8 @@ if(SLIPSTREAM_REFERENCE)
 	target_link_libraries(slipstream_ref PRIVATE s32runtime)
 	if(MSVC)
 		target_compile_options(slipstream_ref PRIVATE /wd4244 /wd4267 /wd4100 /wd4146 /wd4646)
+	else()
+		# MAME's op2.hxx uses roundf/floorf/ceilf/truncf without including <cmath>
+		target_compile_options(slipstream_ref PRIVATE -include cmath)
 	endif()
 endif()

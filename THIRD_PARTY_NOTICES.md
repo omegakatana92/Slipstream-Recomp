@@ -28,6 +28,11 @@ The reference runner `tools/reference/slipstream_ref.cpp` is linked against MAME
 `tools/core/system32/reference/mame/` (BSD 3-Clause, MAME contributors; see that directory's
 LICENSE). It is a development tool, never part of the game.
 
+The game's sound board links MAME's Z80 core, MAME's RF5C68 and ymfm's YM3438 from the same reference
+tree to run the original sound program and produce audio. They are BSD 3-Clause; their notices are in
+`tools/core/system32/reference/mame/LICENSE` and `tools/core/system32/reference/ymfm/LICENSE`. The
+System 32 side of the sound board and the chips' C models are the adapted `segasonic-decomp` runtime.
+
 ## SDL2
 
 The windowed port links SDL2 (<https://www.libsdl.org/>, zlib License). On Windows the build script

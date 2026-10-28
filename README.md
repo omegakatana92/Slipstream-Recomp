@@ -14,7 +14,7 @@ is not. Do not treat it as a finished, playable port yet.
 | `src/cpu/v60.c` | runtime for the translated V60 program: status, interrupts, task instructions, frame loop |
 | `src/game/` | System 32 board model: memory map, 315-5296 I/O, EEPROM, interrupts, timers, MSM6253 ADC |
 | `src/graphics/video.c` | System 32 video: four tilemaps, text, bitmap, sprite buffers, mixer |
-| `src/audio/` | sound-board memory/ports, YM3438, RF5C68 (chips only; the Z80 program is not translated yet) |
+| `src/audio/` | sound-board memory/ports, YM3438, RF5C68, and the original Z80 program on MAME's Z80 core |
 | `src/main/` | headless test runner and SDL2 window |
 | `include/` | board, V60 and sound headers |
 | `tools/` | ROM verification, region extraction, translation driver, reference runner |
@@ -63,8 +63,9 @@ cp ~/roms/slipstrm.zip rom/
 ./build_appimage.sh
 ```
 
-This produces `SlipStream-SteamDeck-x86_64.AppImage`. It has not been built on a Linux host yet
-(development was on Windows); see BUILD_STATUS.
+This produces `SlipStream-SteamDeck-x86_64.AppImage`. It contains no game data; on first run it looks
+for `~/.local/share/slipstream/slipstrm.zip` (or `SLIPSTREAM_REGIONS`), extracts the regions from your
+own ROM with the bundled `extract_regions.py`, and starts the game.
 
 ## Controls
 

@@ -22,6 +22,14 @@ Last updated: 2026-10-28. Development host: Windows 11 x64, LLVM/Clang, MAME 0.2
       currently compares state only.
 - [x] **Analog input** — the MSM6253 4-channel ADC is modeled; adding it changed the game's state from
       the idle 0xFF reading and kept the native/reference comparison exact.
+- [x] **Sound** — the sound board runs the original Z80 program on MAME's Z80 core with MAME's RF5C68 and
+      ymfm's YM3438 (BSD-3-Clause), behind the same board model, and its stereo mix is played by SDL2.
+      Sample and sound-board hashes match the reference for 106 of the first 120 frames; from frame 106
+      the shared-RAM command area and a few V60 variables diverge (see below). No Golden Axe-style
+      command-dispatch rewrite is involved: the driver executes unmodified.
+- [x] **Linux AppImage** — `build_appimage.sh` built `SlipStream-SteamDeck-x86_64.AppImage` in WSL
+      Ubuntu 22.04 (SDL2 2.0.20) and it launches with the user's regions. The AppImage contains no ROM,
+      BIOS, regions or translated C.
 - [x] **Windows builds** — `build/bin/slipstream.exe` (SDL2, x64) builds, copies `SDL2.dll` beside it
       and opens its window; `slipstream_headless.exe` and `slipstream_ref.exe` build.
 
@@ -43,11 +51,11 @@ Last updated: 2026-10-28. Development host: Windows 11 x64, LLVM/Clang, MAME 0.2
         was implemented; it reaches further boot code but hits a task entry (`0837D7`) that the
         frame-timed trace never executes, and the cycle-timed reference trace contains addresses in
         unmapped space, so the static analysis cannot yet use it.
-- [ ] **Sound.** The Z80 program has not been translated. `src/audio/` has the sound-board memory,
-      ports, YM3438 and RF5C68, but no Z80 C program, so there is no audio. MAME's Z80 is not linked
-      into the game.
-- [ ] **Steam Deck AppImage.** `build_appimage.sh` is complete but has not been run: the development
-      host is Windows and no Linux/WSL toolchain was available. No AppImage exists or is claimed.
+- [ ] **Sound divergence after ~106 frames.** The sound board is correct at boot and for 1.8 s, then the
+      shared-RAM command area (`0x701F18`, `0x701F1C`) and a few V60 variables differ from the
+      frame-timed reference. This is under investigation; audio otherwise runs and is mixed to SDL2.
+- [ ] **Steam Deck validation.** The AppImage was built and smoke-tested in WSL (dummy video/audio), not
+      on physical SteamOS hardware. Controller mapping in Gaming Mode remains to be verified.
 - [ ] **Complete game coverage.** The trace covers boot plus 30 s of attract/game time. Later modes
       (test menu, races, endings) will execute translated functions only after a longer trace is
       recorded; untranslated targets stop with a clear diagnostic rather than being faked.

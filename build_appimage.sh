@@ -61,7 +61,14 @@ echo "== AppDir =="
 rm -rf "$APP"
 mkdir -p "$APP/usr/bin" "$APP/usr/share/applications" "$APP/usr/share/icons/hicolor/256x256/apps"
 cp "$BIN/slipstream" "$APP/usr/bin/slipstream"
-cp -r build/regions "$APP/usr/bin/regions"
+
+# No ROM or extracted game data is shipped. The user's own set builds the regions on first run.
+cp packaging/windows/standalone/extract_regions.py "$APP/usr/bin/extract_regions.py"
+cp packaging/windows/standalone/slipstrm_rom.py "$APP/usr/bin/slipstrm_rom.py"
+cp packaging/windows/standalone/README.txt "$APP/usr/bin/README.txt"
+cp CREDITS.md "$APP/usr/bin/CREDITS.txt"
+cp LICENSE "$APP/usr/bin/LICENSE.txt"
+cp THIRD_PARTY_NOTICES.md "$APP/usr/bin/THIRD_PARTY_NOTICES.txt"
 
 # A neutral icon drawn for this project (no game art): a wheel on a dark background.
 python3 - "$APP/usr/share/icons/hicolor/256x256/apps/slipstream.png" <<'PY'
@@ -98,13 +105,35 @@ Categories=Game;ArcadeGame;
 Terminal=false
 EOF
 cp "$APP/slipstream.desktop" "$APP/usr/share/applications/slipstream.desktop"
+cp "$APP/usr/share/icons/hicolor/256x256/apps/slipstream.png" "$APP/slipstream.png"
 
 cat > "$APP/AppRun" <<'EOF'
 #!/bin/sh
 HERE="$(dirname "$(readlink -f "$0")")"
-exec "$HERE/usr/bin/slipstream" --regions "$HERE/usr/bin/regions" "$@"
+DATA="${XDG_DATA_HOME:-$HOME/.local/share}/slipstream"
+REGIONS="${SLIPSTREAM_REGIONS:-$DATA/regions}"
+
+if [ ! -f "$REGIONS/program.bin" ]; then
+    ROM="$DATA/slipstrm.zip"
+    [ -f "$ROM" ] || ROM="$(dirname "$HERE")/slipstrm.zip"
+    if [ ! -f "$ROM" ] && command -v zenity >/dev/null 2>&1; then
+        ROM=$(zenity --file-selection --title="Select your MAME slipstrm.zip" 2>/dev/null) || ROM=""
+    fi
+    if [ -n "$ROM" ] && [ -f "$ROM" ] && command -v python3 >/dev/null 2>&1; then
+        python3 "$HERE/usr/bin/extract_regions.py" "$ROM" "$REGIONS" || exit 1
+    else
+        MSG="Slip Stream needs the board regions from your own ROM set.
+Put MAME's slipstrm.zip in $DATA/slipstrm.zip and run:
+  python3 extract_regions.py slipstrm.zip $REGIONS
+(or set SLIPSTREAM_REGIONS). No ROM data is included in this AppImage."
+        command -v zenity >/dev/null 2>&1 && zenity --error --text="$MSG"
+        echo "$MSG" >&2
+        exit 1
+    fi
+fi
+exec "$HERE/usr/bin/slipstream" --regions "$REGIONS" "$@"
 EOF
-chmod +x "$APP/AppRun" "$APP/usr/bin/slipstream"
+chmod +x "$APP/AppRun" "$APP/usr/bin/slipstream" "$APP/usr/bin/extract_regions.py"
 
 echo "== AppImage =="
 TOOL="$ROOT/build/appimagetool-x86_64.AppImage"

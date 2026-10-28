@@ -14,6 +14,7 @@
 #include "s32/machine.h"
 #include "s32/program.h"
 #include "s32/video.h"
+#include "s32sound.h"
 
 #include <SDL.h>
 #include <stdio.h>
@@ -31,7 +32,9 @@ static const Uint8 *keys;
 static SDL_GameController *controller;
 static uint32_t next_frame_ms;
 static int running = 1;
-static uint8_t *program_image, *tiles_image, *sprites_image;
+static uint8_t *program_image, *tiles_image, *sprites_image, *sound_image;
+static SDL_AudioDeviceID audio_device;
+static uint32_t audio_rate;
 
 static uint8_t *load_region(const char *dir, const char *name, size_t expected)
 {
@@ -171,6 +174,16 @@ static void on_frame_done(void)
 {
 	uint32_t now;
 
+	if (sound_image)
+	{
+		size_t frames = 0;
+		const int16_t *mix;
+
+		s32s_end_frame(s32_board.cycles);
+		mix = s32s_frame_mix(&frames);
+		if (audio_device && frames)
+			SDL_QueueAudio(audio_device, mix, (Uint32)(frames * 2 * sizeof(int16_t)));
+	}
 	present();
 	now = SDL_GetTicks();
 	if (next_frame_ms > now)
@@ -223,6 +236,7 @@ int main(int argc, char **argv)
 	sprites_image = load_region(regions, "sprites.bin", 0x400000);
 	if (!program_image || !tiles_image || !sprites_image)
 		return 1;
+	sound_image = load_region(regions, "sound.bin", 0x400000);
 
 	if (SDL_Init(SDL_INIT_VIDEO | SDL_INIT_GAMECONTROLLER) != 0)
 	{
@@ -248,6 +262,24 @@ int main(int argc, char **argv)
 		}
 
 	s32_video_init(tiles_image, 0x200000, sprites_image, 0x400000);
+	if (sound_image)
+	{
+		SDL_AudioSpec want, have;
+
+		s32_board.sound_rom = sound_image;
+		s32s_attach();
+		audio_rate = s32s_mix_rate();
+		memset(&want, 0, sizeof(want));
+		want.freq = (int)audio_rate;
+		want.format = AUDIO_S16SYS;
+		want.channels = 2;
+		want.samples = 1024;
+		audio_device = SDL_OpenAudioDevice(NULL, 0, &want, &have, 0);
+		if (audio_device)
+			SDL_PauseAudioDevice(audio_device, 0);
+		else
+			fprintf(stderr, "SDL audio: %s\n", SDL_GetError());
+	}
 	s32_board.irq_changed = on_irq_changed;
 	s32_board.controls_update = on_controls_update;
 	s32_board.frame_shown = s32_video_draw_frame;
