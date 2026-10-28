@@ -3,12 +3,12 @@
 This project is built on, and contains code from, the following projects. Their licenses apply to the
 files named, not to the project as a whole.
 
-## arcade-decomp
+## arcade-decomp — Sebastian Toyos (@cheviman)
 
-`tools/core/` is a git submodule of <https://github.com/cheviman/arcade-decomp>, BSD 3-Clause
-License. It provides the V60 disassembler and lift, the static analysis and the translation scaffold.
-Its license is in `tools/core/LICENSE`; its MAME-derived reference sources are under
-`tools/core/system32/reference/mame/LICENSE`.
+`tools/core/` is a git submodule of <https://github.com/cheviman/arcade-decomp>, created by
+**Sebastian Toyos**, BSD 3-Clause License. It provides the NEC V60/V70 disassembler and lift, the
+static analysis and the translation scaffold. Its license is in `tools/core/LICENSE`; its MAME-derived
+reference sources are under `tools/core/system32/reference/mame/LICENSE`.
 
 ## segasonic-decomp runtime
 

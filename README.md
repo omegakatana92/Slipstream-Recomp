@@ -91,6 +91,14 @@ translated to runtime helpers that follow MAME's V60 core.
 The board runtime is the System 32 model from `segasonic-decomp` (BSD-3-Clause), adapted here for
 Slip Stream's analog cabinet, its 16-bit data ROM pair, palette/mixer and 4 MB sprite region.
 
+## Credits
+
+This project is built on **[arcade-decomp](https://github.com/cheviman/arcade-decomp)** by
+**Sebastian Toyos ([@cheviman](https://github.com/cheviman))** — the V60/V70 frontend, static analysis,
+decompiler/translation scaffold, Z80 frontend and System 32 reference tools — and on his
+[segasonic-decomp](https://github.com/cheviman/segasonic-decomp) System 32 runtime. See
+[CREDITS.md](CREDITS.md). Please preserve his BSD-3-Clause notices.
+
 ## Legal
 
 Original project code is offered under the **PolyForm Noncommercial License 1.0.0** where legally
